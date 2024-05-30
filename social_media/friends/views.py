@@ -114,7 +114,7 @@ class FriendRequestAcceptedView(APIView):
 class PendingFriendRequestListView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, *args, **kwargs):
+    def get(self, request, *args, **kwargs):
         friend_requests = FriendRequest.objects.filter(to_user=request.user.pk, status=StatusType.PENDING)
         if friend_requests:
             serializer = FriendRequestSerializer(friend_requests, many=True)
