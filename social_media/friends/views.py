@@ -6,7 +6,9 @@ from .serializers import UserSerializer, FriendRequestSerializer
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import IsAuthenticated
+from django.http import Http404
 from .models import User, FriendRequest, StatusType
+
 
 class UserRegistrationView(APIView):
 
@@ -19,7 +21,7 @@ class UserRegistrationView(APIView):
 
 
 class UserLoginView(ObtainAuthToken):
-    def post(self, request, *args, **kwargs):
+    def post(self, request, *args, **kwargs) -> Response:
         email = request.data.get('email')
         password = request.data.get('password')
         user = authenticate(request, username=email, password=password)
@@ -45,81 +47,70 @@ class UserLogoutView(APIView):
         return Response({'detail': 'Successfully logged out.'})
 
 
-class FriendRequestSentView(APIView):
+class FriendRequestListView(APIView):
+    """FriendRequest List or create View"""
+    throttle_scope = 'sent'
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, *args, **kwargs):
-        data = request.data
-        to_user = User.objects.get(email=request.data.get('to_user'))
+    def post(self, request):
+        """FriendRequest List or create View"""
+        target_user = User.objects.get(email=request.data.get('target_user'))
+        data = {}
         data['from_user'] = request.user.pk
-        data['to_user'] = to_user.pk
+        data['to_user'] = target_user.pk
         data['status'] = StatusType.PENDING
         serializer = FriendRequestSerializer(data=data)
-
         if FriendRequest.objects.filter(**data).exists():
-            raise serializer.ValidationError('This friend request is already sent.')
+            return Response('Friend request was already sent', status=status.HTTP_400_BAD_REQUEST)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class FriendRequestRejectView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request, *args, **kwargs):
-        data = request.data
-        from_user = User.objects.get(email=request.data.get('from_user'))
-        data['to_user'] = request.user.pk
-        data['from_user'] = from_user.pk
-        if FriendRequest.objects.filter(status=StatusType.REJECTED, **data).exists():
-            return Response('This friend request is already rejected.')
-        else:
-            friend_request = FriendRequest.objects.filter(to_user=request.user.pk,
-                                                from_user=request.data.get('from_user'),
-                                                status=StatusType.PENDING).first()
-            if friend_request:
-                friend_request.status = StatusType.REJECTED
-                friend_request.is_deleted = True
-                friend_request.save()
-                data['status'] = StatusType.REJECTED
-                return Response(data, status=status.HTTP_201_CREATED)
-            return Response("nOT PRESENT", status=status.HTTP_400_BAD_REQUEST)
-
-
-class FriendRequestAcceptedView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request, *args, **kwargs):
-        data = request.data
-        from_user = User.objects.get(email=request.data.get('from_user'))
-        data['to_user'] = request.user.pk
-        data['from_user'] = from_user.pk
-        import pdb; pdb.set_trace()
-        if FriendRequest.objects.filter(status=StatusType.ACCEPTED, **data).exists():
-            return Response('This friend request is already ACCEPTED.')
-        else:
-            friend_request = FriendRequest.objects.filter(to_user=request.user.pk,
-                                                from_user=request.data.get('from_user'),
-                                                status=StatusType.PENDING).first()
-            if friend_request:
-                friend_request.status = StatusType.ACCEPTED
-                friend_request.is_deleted = True
-                friend_request.save()
-                request.user.friends.add(from_user)
-                from_user.friends.add(request.user)
-                data['status'] = StatusType.ACCEPTED
-                return Response(data, status=status.HTTP_201_CREATED)
-            return Response("Not Present", status=status.HTTP_400_BAD_REQUEST)
-
-
-class PendingFriendRequestListView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request, *args, **kwargs):
+    def get(self, request) -> Response:
+        """FriendRequest List View"""
         friend_requests = FriendRequest.objects.filter(to_user=request.user.pk, status=StatusType.PENDING)
-        if friend_requests:
-            serializer = FriendRequestSerializer(friend_requests, many=True)
-            return Response(serializer.data)
+        serializer = FriendRequestSerializer(friend_requests, many=True)
+        return Response(serializer.data)
+
+
+class FriendRequestDetailView(APIView):
+    """FriendRequest Detail View"""
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self, from_user: "User", to_user: "User", status: StatusType) -> FriendRequest:
+        try:
+            return FriendRequest.objects.get(from_user=from_user, to_user=to_user, status=status)
+        except FriendRequest.DoesNotExist:
+            raise Http404
+
+    def put(self, request):
+        """FriendRequest accept or reject View"""
+        from_user = User.objects.get(email=request.data.get('from_user'))
+        friend_request = self.get_object(from_user=from_user, to_user=request.user.pk, status=StatusType.PENDING)
+        data = dict()
+        data["from_user"] = from_user.pk
+        data["to_user"] = request.user.pk
+        if request.data.get("accept", False):
+            data['status'] = StatusType.ACCEPTED
         else:
-            return Response(status=status.HTTP_404_NOT_FOUND)
+            data['status'] = StatusType.REJECTED
+        serializer = FriendRequestSerializer(friend_request, data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class SearchUserView(APIView):
+    """Search User view"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        users = User.objects.filter(email__exact=request.data.get('email'))
+        if users:
+            serializer = UserSerializer(users.first())
+        else:
+            users = User.objects.filter(email__contains=request.data.get('email'))
+            serializer = UserSerializer(users, many=True)
+        return Response(serializer.data)

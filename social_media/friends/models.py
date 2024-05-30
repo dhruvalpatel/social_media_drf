@@ -12,6 +12,10 @@ class User(AbstractUser):
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
 
+    def __str__(self) -> str:
+        """Return user email."""
+        return str(self.email)
+
 
 class StatusType:
     """Types of request status."""
