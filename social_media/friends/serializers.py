@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User
+from .models import User, FriendRequest
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -12,3 +12,9 @@ class UserSerializer(serializers.ModelSerializer):
         validated_data["username"] = validated_data["email"]
         user = User.objects.create_user(**validated_data)
         return user
+
+
+class FriendRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FriendRequest
+        fields = ['from_user', 'to_user', 'status']

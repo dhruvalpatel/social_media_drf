@@ -11,3 +11,27 @@ class User(AbstractUser):
                                      )
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
+
+
+class StatusType:
+    """Types of request status."""
+
+    PENDING = 'pending'
+    ACCEPTED = 'accepted'
+    REJECTED = 'rejected'
+    CHOICES = [
+        (PENDING, 'Pending'),
+        (ACCEPTED, 'Accepted'),
+        (REJECTED, 'Rejected')
+    ]
+
+
+class FriendRequest(models.Model):
+    """FriendRequest model for Friends app."""
+    from_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="from_user")
+    to_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="to_user")
+    status = models.CharField(
+        choices=StatusType.CHOICES,
+        default=StatusType.PENDING,
+        max_length=10
+    )
