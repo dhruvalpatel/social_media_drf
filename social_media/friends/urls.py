@@ -1,6 +1,6 @@
 from django.urls import path, include
 from .views import (UserRegistrationView, UserLoginView, UserLogoutView, FriendRequestListView, FriendRequestDetailView, SearchUserView)
-                    # FriendRequestSentView, FriendRequestRejectView, PendingFriendRequestListView, FriendRequestAcceptedView)
+
 
 urlpatterns = [
     path('register/', UserRegistrationView.as_view(), name='user-registration'),

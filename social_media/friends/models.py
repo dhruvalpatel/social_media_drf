@@ -39,3 +39,7 @@ class FriendRequest(models.Model):
         default=StatusType.PENDING,
         max_length=10
     )
+
+    class Meta:
+        """"""
+        constraints = [models.UniqueConstraint(fields=['from_user', 'to_user'], name='Unique friend request')]
