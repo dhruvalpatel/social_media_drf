@@ -12,6 +12,11 @@ class User(AbstractUser):
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
 
+    @property
+    def get_fullname(self) -> str:
+        """Return user's full name.'"""
+        return str(self.first_name + " " + self.last_name).strip()
+
     def __str__(self) -> str:
         """Return user email."""
         return str(self.email)
@@ -41,5 +46,4 @@ class FriendRequest(models.Model):
     )
 
     class Meta:
-        """"""
         constraints = [models.UniqueConstraint(fields=['from_user', 'to_user'], name='Unique friend request')]

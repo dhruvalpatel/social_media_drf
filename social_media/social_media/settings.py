@@ -139,6 +139,6 @@ REST_FRAMEWORK = {
         ],
 
     'DEFAULT_THROTTLE_RATES': {
-        'sent': '3/min',
+        'send': '3/min',
     }
 }

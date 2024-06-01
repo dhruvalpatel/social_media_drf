@@ -17,7 +17,7 @@ services:
   my-postgres_friends:
     image: postgres:14
     ports:
-      - "5432:5432"
+      - "5434:5434"
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     environment:

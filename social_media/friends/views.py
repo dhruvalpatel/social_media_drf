@@ -29,7 +29,7 @@ class UserLoginView(ObtainAuthToken):
             login(request, user)
             token, created = Token.objects.get_or_create(user=user)
             if created:
-                token.delete()  # Delete the token if it was already created
+                token.delete()
                 token = Token.objects.create(user=user)
             return Response({'token': token.key, 'email': user.email})
         else:
@@ -40,7 +40,6 @@ class UserLogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        print(request.headers)
         token_key = request.auth.key
         token = Token.objects.get(key=token_key)
         token.delete()
@@ -49,13 +48,14 @@ class UserLogoutView(APIView):
 
 class FriendRequestListView(APIView):
     """FriendRequest List or create View"""
-    throttle_scope = 'sent'
+    throttle_scope = 'send'
     permission_classes = [IsAuthenticated]
 
-    def post(self, request):
-        """FriendRequest List or create View"""
-        target_user = User.objects.get(email=request.data.get('target_user'))
-        data = {}
+    @classmethod
+    def post(cls, request) -> Response:
+        """Create and return FriendRequest response"""
+        target_user = User.objects.get(email=request.data.get('target_user_email'))
+        data = dict()
         data['from_user'] = request.user.pk
         data['to_user'] = target_user.pk
         data['status'] = StatusType.PENDING
@@ -67,8 +67,9 @@ class FriendRequestListView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def get(self, request) -> Response:
-        """FriendRequest List View"""
+    @classmethod
+    def get(cls, request) -> Response:
+        """Return pending friend request"""
         friend_requests = FriendRequest.objects.filter(to_user=request.user.pk, status=StatusType.PENDING)
         serializer = FriendRequestSerializer(friend_requests, many=True)
         return Response(serializer.data)
@@ -78,18 +79,19 @@ class FriendRequestDetailView(APIView):
     """FriendRequest Detail View"""
     permission_classes = [IsAuthenticated]
 
-    def get_object(self, from_user: "User", to_user: "User", status: StatusType) -> FriendRequest:
+    @classmethod
+    def get_object(cls, request_id, status: StatusType) -> FriendRequest:
         try:
-            return FriendRequest.objects.get(from_user=from_user, to_user=to_user, status=status)
+            return FriendRequest.objects.get(pk=request_id, status=status)
         except FriendRequest.DoesNotExist:
-            raise Http404
+            raise Http404(f"Friend request does not exist with requestid {request_id}")
 
-    def put(self, request):
+    @classmethod
+    def put(cls, request):
         """FriendRequest accept or reject View"""
-        from_user = User.objects.get(email=request.data.get('from_user'))
-        friend_request = self.get_object(from_user=from_user, to_user=request.user.pk, status=StatusType.PENDING)
+        friend_request = cls.get_object(request_id=request.data.get('request_id'), status=StatusType.PENDING)
         data = dict()
-        data["from_user"] = from_user.pk
+        data["from_user"] = friend_request.from_user.pk
         data["to_user"] = request.user.pk
         if request.data.get("accept", False):
             data['status'] = StatusType.ACCEPTED
@@ -106,11 +108,17 @@ class SearchUserView(APIView):
     """Search User view"""
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-        users = User.objects.filter(email__exact=request.data.get('email'))
-        if users:
-            serializer = UserSerializer(users.first())
+    @classmethod
+    def get(cls, request) -> Response:
+        """Return users based on query string"""
+        if request.data.get('email'):
+            users = User.objects.filter(email__exact=request.data.get('email'))
+            if users:
+                serializer = UserSerializer(users.first())
+            else:
+                users = User.objects.filter(email__contains=request.data.get('email'))
+                serializer = UserSerializer(users, many=True)
         else:
-            users = User.objects.filter(email__contains=request.data.get('email'))
+            users = User.objects.filter(first_name__contains=request.data.get('name'))
             serializer = UserSerializer(users, many=True)
         return Response(serializer.data)
