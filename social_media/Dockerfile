@@ -11,15 +11,9 @@ RUN \
   apt-get update \
   && apt-get install -y \
       apt-utils \
-      gcc wget telnet \
-      curl make \
       build-essential \
-      cmake \
       pkg-config \
-      iputils-ping \
-      net-tools  \
       libcurl4-openssl-dev libssl-dev freetds-dev libkrb5-dev \
-      unzip xdg-utils libpq-dev groff less \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the dependencies file to the working directory

@@ -18,9 +18,11 @@ class UserSerializer(serializers.ModelSerializer):
 
 class FriendRequestSerializer(serializers.ModelSerializer):
     """Serializer for the FriendRequest model"""
-    name = serializers.CharField(source='from_user.get_full_name', read_only=True)
+    from_user_name = serializers.CharField(source='from_user.get_full_name', read_only=True)
+    to_user_name = serializers.CharField(source='to_user.get_full_name', read_only=True)
 
     class Meta:
         model = FriendRequest
-        fields = ['id', 'from_user', 'to_user', 'name', 'status',]
+        fields = ['id', 'from_user', 'to_user', 'from_user_name', 'to_user_name','status',]
+
 

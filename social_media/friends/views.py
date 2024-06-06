@@ -8,11 +8,15 @@ from rest_framework.authtoken.models import Token
 from rest_framework.permissions import IsAuthenticated
 from django.http import Http404
 from .models import User, FriendRequest, StatusType
+from rest_framework.pagination import PageNumberPagination
 
 
 class UserRegistrationView(APIView):
+    """User registration view."""
 
-    def post(self, request):
+    @classmethod
+    def post(cls, request) -> Response:
+        """Return user registration response."""
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -21,7 +25,10 @@ class UserRegistrationView(APIView):
 
 
 class UserLoginView(ObtainAuthToken):
-    def post(self, request, *args, **kwargs) -> Response:
+    """User login view."""
+    @classmethod
+    def post(cls, request, *args, **kwargs) -> Response:
+        """Return user login response."""
         email = request.data.get('email')
         password = request.data.get('password')
         user = authenticate(request, username=email, password=password)
@@ -44,6 +51,19 @@ class UserLogoutView(APIView):
         token = Token.objects.get(key=token_key)
         token.delete()
         return Response({'detail': 'Successfully logged out.'})
+
+
+class FriendListView(APIView):
+    """Friend list view"""
+    permission_classes = [IsAuthenticated]
+
+    @classmethod
+    def get(cls, request) -> Response:
+        """Return list of users friends."""
+        user = User.objects.get(id=request.user.id)
+        friends_list = user.friends.all()
+        serializer = UserSerializer(friends_list, many=True)
+        return Response(serializer.data)
 
 
 class FriendRequestListView(APIView):
@@ -100,6 +120,8 @@ class FriendRequestDetailView(APIView):
         serializer = FriendRequestSerializer(friend_request, data=data)
         if serializer.is_valid():
             serializer.save()
+            request.user.friends.add(friend_request.from_user)
+            friend_request.from_user.friends.add(request.user)
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -107,6 +129,7 @@ class FriendRequestDetailView(APIView):
 class SearchUserView(APIView):
     """Search User view"""
     permission_classes = [IsAuthenticated]
+    pagination_class = PageNumberPagination
 
     @classmethod
     def get(cls, request) -> Response:
@@ -122,3 +145,4 @@ class SearchUserView(APIView):
             users = User.objects.filter(first_name__contains=request.data.get('name'))
             serializer = UserSerializer(users, many=True)
         return Response(serializer.data)
+
